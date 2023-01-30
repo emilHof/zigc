@@ -1,7 +1,13 @@
 [package]
 name = "zigc"
-version = "0.1.0"
+version = "0.0.0-alpha0.1"
 edition = "2021"
+license = "MIT"
+description = "A tool for compiling and linking Zig libraries to Rust projects."
+homepage = "https://docs.rs/zigc"
+documentation = "https://docs.rs/zigc"
+repository = "https://github.com/emilHof/zigc"
+readme = "./README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
