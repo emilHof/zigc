@@ -1,13 +1,12 @@
 use osstrtools::OsStrTools;
 use std::{
-    env, fs,
+    env,
     os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::Command,
 };
 
 pub struct Build {
-    include_directories: Vec<PathBuf>,
     file: Option<PathBuf>,
     flags: Vec<String>,
     out_dir: Option<PathBuf>,
@@ -17,7 +16,6 @@ pub struct Build {
 impl Build {
     pub fn new() -> Self {
         Build {
-            include_directories: vec![],
             file: None,
             flags: vec![],
             out_dir: None,
