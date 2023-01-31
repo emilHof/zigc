@@ -10,7 +10,7 @@ libraries into your [Rust](https://www.rust-lang.org/) projects.
 Given the following function definition as an example:
 
 ```zig
-/* main.zig */
+// main.zig
 const std = @import("std");
 
 export fn add(a: c_int, b: c_int) callconv(.C) c_int {
