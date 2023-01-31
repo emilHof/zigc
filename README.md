@@ -75,6 +75,7 @@ $ cargo run
   - [ ] Specify additional `include` libraries
 - [ ] Allow compilation and linking of `static` Zig libraries.
 - [ ] Ability to compile and link multiple `.zig` files.
+- [ ] Automatic target specification using cargo's `TARGET` flag.
 
 ### Contribute
 
