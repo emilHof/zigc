@@ -128,6 +128,8 @@ impl Build {
                 self.get_emit_path().display(),
                 self.get_lib_ft()
             ))
+            .arg("--cache-dir")
+            .arg(self.get_out_dir().expect("OUT_DIR to be set"))
             .arg(self.file.as_ref().expect("lib file to be set"))
             .exec();
     }
