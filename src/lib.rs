@@ -1,6 +1,7 @@
 use osstrtools::OsStrTools;
 use std::{
     env,
+    io::Write,
     os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::Command,
@@ -8,6 +9,7 @@ use std::{
 
 pub struct Build {
     file: Option<PathBuf>,
+    lib_name: Option<PathBuf>,
     flags: Vec<String>,
     out_dir: Option<PathBuf>,
     out_type: LibType,
@@ -17,6 +19,7 @@ impl Build {
     pub fn new() -> Self {
         Build {
             file: None,
+            lib_name: None,
             flags: vec![],
             out_dir: None,
             out_type: LibType::Dynamic,
@@ -34,6 +37,11 @@ impl Build {
 
     pub fn file<P: AsRef<Path>>(mut self, p: P) -> Build {
         self.file = Some(PathBuf::from(p.as_ref()));
+        self
+    }
+
+    pub fn lib_name<P: AsRef<Path>>(mut self, p: P) -> Build {
+        self.lib_name = Some(PathBuf::from(p.as_ref()));
         self
     }
 
@@ -58,15 +66,19 @@ impl Build {
     }
 
     fn get_lib_name(&self) -> PathBuf {
-        PathBuf::from(
-            self.file
-                .clone()
-                .expect("file to be set!")
-                .file_name()
-                .expect("file to be set")
-                .to_os_string()
-                .split(".")[0],
-        )
+        match self.lib_name.as_ref() {
+            Some(lib_name) => lib_name.clone(),
+
+            None => PathBuf::from(
+                self.file
+                    .clone()
+                    .expect("file to be set!")
+                    .file_name()
+                    .expect("file to be set")
+                    .to_os_string()
+                    .split(".")[0],
+            ),
+        }
     }
 
     fn get_emit_path(&self) -> PathBuf {
@@ -78,6 +90,19 @@ impl Build {
     }
 
     fn set_cargo_search_dir(&self) {
+        
+        std::fs::OpenOptions::new()
+            .append(true)
+            .write(true)
+            .open("./log.txt")
+            .unwrap()
+            .write(
+            format!(
+                "cargo:rustc-link-search=native={}\n",
+                self.get_out_dir().as_ref().unwrap().display()
+            )
+            .as_bytes(),
+        );
         println!(
             "cargo:rustc-link-search=native={}",
             self.get_out_dir().as_ref().unwrap().display()
@@ -85,6 +110,18 @@ impl Build {
     }
 
     fn set_cargo_lib_name(&self) {
+        std::fs::OpenOptions::new()
+            .append(true)
+            .write(true)
+            .open("./log.txt")
+            .unwrap()
+            .write(
+                format!(
+                    "cargo:rustc-link-lib=dylib={}\n",
+                    self.get_lib_name().display()
+                )
+                .as_bytes(),
+            );
         println!(
             "cargo:rustc-link-lib=dylib={}",
             self.get_lib_name().display()
