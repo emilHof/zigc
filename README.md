@@ -9,7 +9,7 @@ libraries into your [Rust](https://www.rust-lang.org/) projects.
 
 Given the following function definition as an example:
 
-```rust
+```zig
 /* main.zig */
 const std = @import("std");
 
