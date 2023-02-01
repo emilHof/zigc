@@ -6,6 +6,22 @@ use std::{
     process::Command,
 };
 
+pub enum Opt {
+    Fast,
+    Safe,
+    Small,
+}
+
+impl Into<String> for &Opt {
+    fn into(self) -> String {
+        match self {
+            Opt::Fast => "ReleaseFast".to_string(),
+            Opt::Safe => "ReleaseSafe".to_string(),
+            Opt::Small => "ReleaseSmall".to_string(),
+        }
+    }
+}
+
 #[cfg(feature = "log")]
 use std::io::Write;
 
@@ -15,6 +31,7 @@ pub struct Build {
     flags: Vec<String>,
     out_dir: Option<PathBuf>,
     out_type: LibType,
+    optimiziation: Option<Opt>,
 
     #[cfg(feature = "log")]
     log_file: Option<std::fs::File>,
@@ -28,6 +45,7 @@ impl Build {
             flags: vec![],
             out_dir: None,
             out_type: LibType::Dynamic,
+            optimiziation: None,
 
             #[cfg(feature = "log")]
             log_file: None,
@@ -116,6 +134,14 @@ impl Build {
         self
     }
 
+    /// Configure the optimization level of the library.
+    /// If crate is compiled with `debug` this defaults to `DEBUG`,
+    /// otherwise it defaults to `ReleaseSafe`
+    pub fn optimiziation(mut self, opt: Opt) -> Build {
+        self.optimiziation = Some(opt);
+        self
+    }
+
     fn get_lib_name(&self) -> PathBuf {
         match self.lib_name.as_ref() {
             Some(lib_name) => lib_name.clone(),
@@ -182,6 +208,21 @@ impl Build {
         }
     }
 
+    fn match_profile(&self) -> String {
+        if let Some(opt) = self.optimiziation.as_ref() {
+            return opt.into();
+        }
+
+        match std::env::var("PROFILE")
+            .expect("PROFILE to be set by cargo")
+            .as_str()
+        {
+            "release" => "ReleaseSafe".to_string(),
+            "debug" => "Debug".to_string(),
+            _ => unreachable!("Invalid cargo PROFILE env"),
+        }
+    }
+
     pub fn finish(mut self) {
         let Some(file) = self.file.clone() else {
             return;
@@ -218,6 +259,9 @@ impl Build {
             // this is not checking if we are passing a valid target!
             // that we leave to `zig`
             .arg(self.match_target())
+            // set the compilation mode
+            .arg("-O")
+            .arg(self.match_profile())
             .arg(self.file.as_ref().expect("lib file to be set"))
             .exec();
     }
