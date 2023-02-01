@@ -1,11 +1,13 @@
 use osstrtools::OsStrTools;
 use std::{
     env,
-    io::Write,
     os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::Command,
 };
+
+#[cfg(feature = "log")]
+use std::io::Write;
 
 pub struct Build {
     file: Option<PathBuf>,
@@ -13,6 +15,9 @@ pub struct Build {
     flags: Vec<String>,
     out_dir: Option<PathBuf>,
     out_type: LibType,
+
+    #[cfg(feature = "log")]
+    log_file: Option<std::fs::File>,
 }
 
 impl Build {
@@ -23,16 +28,62 @@ impl Build {
             flags: vec![],
             out_dir: None,
             out_type: LibType::Dynamic,
+
+            #[cfg(feature = "log")]
+            log_file: None,
         }
     }
 
-    fn get_out_dir(&self) -> Result<PathBuf, ()> {
-        match self.out_dir.clone() {
-            None => Ok(env::var_os("OUT_DIR")
-                .map(PathBuf::from)
-                .ok_or_else(|| ())?),
-            Some(p) => Ok(p),
+    #[cfg(feature = "log")]
+    pub fn log(mut self, log: bool) -> Build {
+        if log {
+            self.log_file = std::fs::OpenOptions::new()
+                .append(true)
+                .write(true)
+                .create(true)
+                .open(self.get_log_dir())
+                .ok()
         }
+
+        if let Some(log_file) = self.log_file.as_mut() {
+            writeln!(log_file).expect("Log file to have been created!");
+            writeln!(log_file, "--------------------------------------")
+                .expect("Log file to have been created!");
+            writeln!(log_file, "T:{}", chrono::Local::now())
+                .expect("Log file to have been created!");
+            writeln!(log_file, "--------------------------------------")
+                .expect("Log file to have been created!");
+            writeln!(log_file).expect("Log file to have been created!");
+        };
+
+        self
+    }
+
+    #[cfg(feature = "log")]
+    fn get_log_dir(&self) -> PathBuf {
+        self.get_out_dir().join("logs.txt")
+    }
+
+    fn get_out_dir(&self) -> PathBuf {
+        match self.out_dir.clone() {
+            None => env::var_os("OUT_DIR")
+                .map(PathBuf::from)
+                .expect("OUT_DIR to be set by cargo!"),
+            Some(p) => p,
+        }
+    }
+
+    fn match_target(&mut self) -> String {
+        let split_target = std::env::var("TARGET")
+            .expect("TARGET to be set by cargo")
+            .split('-')
+            .map(String::from)
+            .collect::<Vec<_>>();
+
+        format!(
+            "{}-{}-{}",
+            split_target[0], split_target[2], split_target[3]
+        )
     }
 
     pub fn file<P: AsRef<Path>>(mut self, p: P) -> Build {
@@ -84,48 +135,37 @@ impl Build {
     fn get_emit_path(&self) -> PathBuf {
         let lib_name = self.get_lib_name();
 
-        let out_dir = self.get_out_dir().expect("out dir to be set");
+        let out_dir = self.get_out_dir();
 
         out_dir.join(format!("lib{}", lib_name.display()))
     }
 
-    fn set_cargo_search_dir(&self) {
-        
-        std::fs::OpenOptions::new()
-            .append(true)
-            .write(true)
-            .open("./log.txt")
-            .unwrap()
-            .write(
-            format!(
-                "cargo:rustc-link-search=native={}\n",
-                self.get_out_dir().as_ref().unwrap().display()
-            )
-            .as_bytes(),
-        );
-        println!(
+    fn set_cargo_search_dir(&mut self) {
+        let cmd = format!(
             "cargo:rustc-link-search=native={}",
-            self.get_out_dir().as_ref().unwrap().display()
+            self.get_out_dir().display()
         );
+
+        #[cfg(feature = "log")]
+        if let Some(log) = self.log_file.as_mut() {
+            writeln!(log, "{}", cmd).expect("log file to exist");
+        }
+
+        println!("{}", cmd);
     }
 
-    fn set_cargo_lib_name(&self) {
-        std::fs::OpenOptions::new()
-            .append(true)
-            .write(true)
-            .open("./log.txt")
-            .unwrap()
-            .write(
-                format!(
-                    "cargo:rustc-link-lib=dylib={}\n",
-                    self.get_lib_name().display()
-                )
-                .as_bytes(),
-            );
-        println!(
+    fn set_cargo_lib_name(&mut self) {
+        let cmd = format!(
             "cargo:rustc-link-lib=dylib={}",
             self.get_lib_name().display()
         );
+
+        #[cfg(feature = "log")]
+        if let Some(log) = self.log_file.as_mut() {
+            writeln!(log, "{}", cmd).expect("log file to exist");
+        }
+
+        println!("{}", cmd);
     }
 
     fn set_rerun_pref(&self) {
@@ -142,7 +182,7 @@ impl Build {
         }
     }
 
-    pub fn finish(self) {
+    pub fn finish(mut self) {
         let Some(file) = self.file.clone() else {
             return;
         };
@@ -160,13 +200,24 @@ impl Build {
         Command::new("zig")
             .arg("build-lib")
             .arg("-dynamic")
+            // sets the emit path to the OUT_DIR
             .arg(format!(
                 "-femit-bin={}.{}",
                 self.get_emit_path().display(),
                 self.get_lib_ft()
             ))
+            // changes the default SONAME to the specified lib name
+            .arg(format!(
+                "-fsoname=lib{}.{}",
+                self.get_lib_name().display(),
+                self.get_lib_ft()
+            ))
             .arg("--cache-dir")
-            .arg(self.get_out_dir().expect("OUT_DIR to be set"))
+            .arg(self.get_out_dir())
+            .arg("-target")
+            // this is not checking if we are passing a valid target!
+            // that we leave to `zig`
+            .arg(self.match_target())
             .arg(self.file.as_ref().expect("lib file to be set"))
             .exec();
     }
