@@ -1,4 +1,6 @@
 use osstrtools::OsStrTools;
+#[cfg(feature = "log")]
+use std::io::Write;
 use std::{
     env,
     os::unix::process::CommandExt,
@@ -22,8 +24,10 @@ impl Into<String> for &Opt {
     }
 }
 
-#[cfg(feature = "log")]
-use std::io::Write;
+enum LibType {
+    Static,
+    Dynamic,
+}
 
 pub struct Build {
     file: Option<PathBuf>,
@@ -180,9 +184,24 @@ impl Build {
         println!("{}", cmd);
     }
 
+    fn get_cargo_out_type(&self) -> String {
+        match &self.out_type {
+            LibType::Static => "static".to_owned(),
+            LibType::Dynamic => "dynlib".to_owned(),
+        }
+    }
+
+    fn get_zig_out_type(&self) -> String {
+        match &self.out_type {
+            LibType::Static => "static".to_owned(),
+            LibType::Dynamic => "dynamic".to_owned(),
+        }
+    }
+
     fn set_cargo_lib_name(&mut self) {
         let cmd = format!(
-            "cargo:rustc-link-lib=dylib={}",
+            "cargo:rustc-link-lib={}={}",
+            self.get_cargo_out_type(),
             self.get_lib_name().display()
         );
 
@@ -239,8 +258,10 @@ impl Build {
         self.set_rerun_pref();
 
         Command::new("zig")
+            // zig build command
             .arg("build-lib")
-            .arg("-dynamic")
+            // set to static or dynamic lib
+            .arg(format!("-{}", self.get_zig_out_type()))
             // sets the emit path to the OUT_DIR
             .arg(format!(
                 "-femit-bin={}.{}",
@@ -253,23 +274,21 @@ impl Build {
                 self.get_lib_name().display(),
                 self.get_lib_ft()
             ))
+            // set the output directory of the build cache
             .arg("--cache-dir")
             .arg(self.get_out_dir())
-            .arg("-target")
             // this is not checking if we are passing a valid target!
             // that we leave to `zig`
+            .arg("-target")
             .arg(self.match_target())
             // set the compilation mode
             .arg("-O")
             .arg(self.match_profile())
+            // set the file to be compiled and linked
             .arg(self.file.as_ref().expect("lib file to be set"))
+            // execute the command
             .exec();
     }
-}
-
-enum LibType {
-    Static,
-    Dynamic,
 }
 
 #[cfg(test)]
