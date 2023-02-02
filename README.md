@@ -69,13 +69,14 @@ $ cargo run
 
 - [x] Basic `.zig` compilation
 - [x] MVP linking of `.so` files to cargo projects.
+- [x] Add logging.
+- [x] Automatic target specification using cargo's `TARGET` flag.
 - [ ] Add more options to `Build`
   - [ ] Additional flags (`-cflags`, `-target`, `-mcpu`, etc)
   - [ ] Name output library file.
   - [ ] Specify additional `include` libraries
 - [ ] Allow compilation and linking of `static` Zig libraries.
 - [ ] Ability to compile and link multiple `.zig` files.
-- [ ] Automatic target specification using cargo's `TARGET` flag.
 
 ### Contribute
 
