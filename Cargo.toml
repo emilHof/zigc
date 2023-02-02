@@ -1,6 +1,6 @@
 [package]
 name = "zigc"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 license-file = "./LICENSE"
 description = "A tool for compiling and linking Zig libraries to Rust projects."
